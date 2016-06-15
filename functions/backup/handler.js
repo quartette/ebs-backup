@@ -15,8 +15,8 @@ module.exports.handler = (event, context, cb) => {
       // バックアップ対象のインスタンス一覧の取得
       instances = yield ec2.describeInstances(descInstancesParams).promise();
     } catch (err) {
-      console.log('error : ' + err);
-      context.done(new Error(err));
+      console.error(err);
+      return cb(new Error(err));
     }
     // パース
     let descriptions = parseDescriptions(instances);
@@ -59,8 +59,8 @@ module.exports.handler = (event, context, cb) => {
     try {
       snapShots = yield ec2.describeSnapshots(sParams).promise();
     } catch (err) {
-      console.log(err);
-      context.done(new Error(err));
+      console.error(err);
+      return cb(new Error(err));
     }
     let deleteIds = getOldSnapShots(snapShots, descriptions);
     console.log('delete snapshot ids : ' + deleteIds);
@@ -74,16 +74,17 @@ module.exports.handler = (event, context, cb) => {
     }
     if (promiseList.length < 1) {
       console.log('nothing ');
-      context.done(null, 'nothing');
+      return cb(null, 'nothing');
     } 
     try {
       let result = yield promiseList;
       console.log(result);
     } catch(err) {
-      console.log(err);
+      console.error(err);
+      return cb(new Error(err));
     }
     
-    context.done(null, 'ebs backup done');
+    return cb(null, 'ebs backup done');
   });
 };
 
@@ -128,8 +129,7 @@ function getOldSnapShots(snapshotList, descriptions) {
   let deleteIds = [];
   for (let key in group) {
     let g = group[key];
-    
-    if (g.snapshot.length <= g.generation) continue;
+    if (g.generation == 0 || g.snapshot.length <= g.generation) continue;
     // if (g.snapshot.length <= 1) continue;
     
     let delete_num = g.snapshot.length - g.generation;
